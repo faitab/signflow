@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentStatus {
+  DRAFT
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum SignerStatus {
+  PENDING
+  VIEWED
+  SIGNED
+  DECLINED
+}
+
+enum FieldType {
+  SIGNATURE
+  INITIALS
+  DATE
+  TEXT
+  CHECKBOX
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents Document[]
+
+  @@map("users")
+}
+
+model Document {
+  id           String         @id @default(uuid())
+  title        String
+  ownerId      String
+  originalUrl  String
+  signedUrl    String?
+  status       DocumentStatus @default(DRAFT)
+  fileHash     String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  completedAt  DateTime?
+
+  owner        User      @relation(fields: [ownerId], references: [id])
+  signers      Signer[]
+  fields       Field[]
+  auditLogs    AuditLog[]
+
+  @@map("documents")
+}
+
+model Signer {
+  id          String       @id @default(uuid())
+  documentId  String
+  name        String
+  email       String
+  order       Int          @default(0)
+  status      SignerStatus @default(PENDING)
+  accessToken String       @unique @default(uuid())
+  viewedAt    DateTime?
+  signedAt    DateTime?
+  ipAddress   String?
+  createdAt   DateTime     @default(now())
+
+  document    Document @relation(fields: [documentId], references: [id])
+  fields      Field[]
+
+  @@map("signers")
+}
+
+model Field {
+  id         String    @id @default(uuid())
+  documentId String
+  signerId   String
+  type       FieldType
+  page       Int
+  x          Float
+  y          Float
+  width      Float
+  height     Float
+  value      String?
+  completed  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id])
+  signer     Signer   @relation(fields: [signerId], references: [id])
+
+  @@map("fields")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  documentId String
+  action     String
+  actor      String
+  ipAddress  String?
+  metadata   String?
+  timestamp  DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id])
+
+  @@map("audit_logs")
+}
